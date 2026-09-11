@@ -32,11 +32,6 @@ export const getWordMaxWidth = (margin: number) =>
   (CANVAS_WIDTH - margin * 2) * WORD_INK_SAFETY;
 export const WORD_LETTER_SPACING = "-0.07em";
 export const WORD_LETTER_SPACING_EM = -0.07;
-// The font-size never exceeds what an 8-character word needs to fill the
-// margin-to-margin width — short words (e.g. "Emma") stop growing at that
-// size instead of becoming oversized. "Roomaine" (8 characters) is also the
-// original reference word from Fond.svg, so this doubles as that calibration.
-export const MAX_SIZE_REFERENCE_TEXT = "Roomaine";
 // Vertical center of the "Roomaine" ink bounding box in Fond.svg (719.0 - 952.6).
 export const WORD_CENTER_Y = 836;
 export const WORD_SLOT_HEIGHT = 420;
@@ -78,3 +73,6 @@ export const SCALE_X_TIMES = [0, 0.5, 1] as const;
 // Higher = more pronounced "very slow in/out" at that segment's slow end.
 export const EASING_OUT_POWER = 4;
 export const EASING_IN_POWER = 4;
+// How strongly the letters *after* the duplicated "o" react during the
+// overshoot peak (proportional to how far scaleX exceeds 1).
+export const AFTER_REACTION_STRENGTH = 0.05;

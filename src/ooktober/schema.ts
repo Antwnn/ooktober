@@ -18,9 +18,4 @@ export type OoktoberResolvedProps = OoktoberInputProps & {
   insertIndex: number | null;
   hasAnimation: boolean;
   fontSize: number;
-  // Resolved letter-spacing in px. Normally the standard -7% tracking at
-  // `fontSize`; widened instead of growing `fontSize` further once the
-  // word is short enough to hit the 8-character size cap, so it still
-  // spans exactly from margin to margin.
-  letterSpacing: number;
 };

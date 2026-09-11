@@ -13,7 +13,7 @@ export const OoktoberComposition: React.FC<OoktoberResolvedProps> = ({
   insertIndex,
   hasAnimation,
   fontSize,
-  letterSpacing,
+  margin,
   stretchPeak,
   sequenceDurationSeconds,
   easingOutPower,
@@ -27,7 +27,7 @@ export const OoktoberComposition: React.FC<OoktoberResolvedProps> = ({
         insertIndex={insertIndex}
         hasAnimation={hasAnimation}
         fontSize={fontSize}
-        letterSpacing={letterSpacing}
+        margin={margin}
         stretchPeak={stretchPeak}
         sequenceDurationSeconds={sequenceDurationSeconds}
         easingOutPower={easingOutPower}
