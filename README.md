@@ -36,6 +36,21 @@ Change the code or create new files in there.
 npx remotion render
 ```
 
+## Oktober personalization tool
+
+A standalone web tool (`app/`) lets you type a name/word, preview the
+"duplicated o" animation live, and download a rendered MP4. It's a separate
+Remotion composition (`OoktoberWord`, see `src/ooktober/`) from the
+code-snippet video above.
+
+```console
+npm run tool:dev
+```
+
+This starts the render server (port 3001) and the web app (port 5173) together
+— open http://localhost:5173. You can also preview the `OoktoberWord`
+composition directly in Remotion Studio (`npm run dev`).
+
 **Upgrade Remotion**
 
 ```console

@@ -3,11 +3,11 @@ import {createRequire} from 'node:module';
 
 const projectRequire = createRequire(process.cwd() + '/package.json');
 
-Config.setRspack(true);
+Config.setRspack(false);
 Config.setVideoImageFormat('jpeg');
 Config.setOverwriteOutput(true);
 
-Config.overrideRspackConfig((config) => {
+Config.overrideWebpackConfig((config) => {
 	return {
 		...config,
 		resolve: {
