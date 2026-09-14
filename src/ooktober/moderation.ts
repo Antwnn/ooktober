@@ -6,32 +6,50 @@ import naughtyWords from "naughty-words";
 const ALL_WORDS: string[] = Object.values(naughtyWords).flat();
 
 const COMBINING_DIACRITICS = new RegExp("[\\u0300-\\u036f]", "g");
+const NON_ALPHANUMERIC = /[^\p{L}\p{N}]+/gu;
 
 const normalize = (value: string) =>
   value.toLowerCase().normalize("NFD").replace(COMBINING_DIACRITICS, "");
 
+// Letters/digits only, no spaces, dashes, underscores, punctuation, etc. —
+// used to catch multi-word insults typed as one run-together word (any
+// separator, or none at all), e.g. "fils de pute" written "filsdepute".
+const collapse = (value: string) => value.replace(NON_ALPHANUMERIC, "");
+
+// Below this, a collapsed phrase (e.g. "s＆m" -> "sm") is too short to
+// substring-match safely — it would false-positive on ordinary names/words
+// ("Smith", "Jasmine", ...) once word boundaries are gone.
+const MIN_COLLAPSED_PHRASE_LENGTH = 6;
+
 const SINGLE_WORDS = new Set<string>();
-const PHRASES: string[] = [];
+const COLLAPSED_PHRASES: string[] = [];
 
 for (const word of ALL_WORDS) {
   const normalized = normalize(word);
   if (normalized.includes(" ")) {
-    PHRASES.push(normalized);
+    const collapsed = collapse(normalized);
+    if (collapsed.length >= MIN_COLLAPSED_PHRASE_LENGTH) {
+      COLLAPSED_PHRASES.push(collapsed);
+    }
   } else if (normalized.length > 0) {
     SINGLE_WORDS.add(normalized);
   }
 }
 
-// Whole-word matching (not raw substring search) to avoid false positives
-// on innocent names that merely contain a short bad word, e.g. "cummings".
 export function containsProfanity(text: string): boolean {
   const normalizedText = normalize(text);
   if (normalizedText.trim().length === 0) return false;
 
-  if (PHRASES.some((phrase) => normalizedText.includes(phrase))) {
+  // Multi-word insults, matched regardless of spacing/punctuation (or the
+  // lack of it) between the words.
+  const collapsedText = collapse(normalizedText);
+  if (COLLAPSED_PHRASES.some((phrase) => collapsedText.includes(phrase))) {
     return true;
   }
 
-  const tokens = normalizedText.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  // Single words: whole-word matching (not raw substring search) to avoid
+  // false positives on innocent names that merely contain a short bad
+  // word, e.g. "cummings".
+  const tokens = normalizedText.split(NON_ALPHANUMERIC).filter(Boolean);
   return tokens.some((token) => SINGLE_WORDS.has(token));
 }
