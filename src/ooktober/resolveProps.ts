@@ -31,7 +31,10 @@ export async function resolveOoktoberProps(
     validateFontIsLoaded: true,
   });
 
-  const isBlocked = containsProfanity(text);
+  // Check both the raw input and the actual displayed word — some words
+  // (e.g. "bobs") are clean on their own but become offensive once the
+  // "o" is duplicated ("boobs").
+  const isBlocked = containsProfanity(text) || containsProfanity(displayText);
 
   return { ...input, displayText, insertIndex, hasAnimation, fontSize, isBlocked };
 }
