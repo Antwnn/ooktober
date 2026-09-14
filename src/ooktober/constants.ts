@@ -72,7 +72,7 @@ export const SCALE_X_TIMES = [0, 0.5, 1] as const;
 // Easing.poly(n) exponent used for each segment (narrow->peak, peak->settle).
 // Higher = more pronounced "very slow in/out" at that segment's slow end.
 export const EASING_OUT_POWER = 4;
-export const EASING_IN_POWER = 4;
+export const EASING_IN_POWER = 7;
 // How strongly the letters *after* the duplicated "o" react during the
 // overshoot peak (proportional to how far scaleX exceeds 1).
 export const AFTER_REACTION_STRENGTH = 0.05;

@@ -18,4 +18,8 @@ export type OoktoberResolvedProps = OoktoberInputProps & {
   insertIndex: number | null;
   hasAnimation: boolean;
   fontSize: number;
+  // True when the raw input matched a profanity/insult in any supported
+  // language — all text elements (word + both static captions) are hidden
+  // while this is true.
+  isBlocked: boolean;
 };

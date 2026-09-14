@@ -18,7 +18,14 @@ export const OoktoberComposition: React.FC<OoktoberResolvedProps> = ({
   sequenceDurationSeconds,
   easingOutPower,
   easingInPower,
+  isBlocked,
 }) => {
+  // An insult/profane word in the input hides every text element — only
+  // the background stays — until the text is changed to something clean.
+  if (isBlocked) {
+    return <AbsoluteFill style={{ backgroundColor: BACKGROUND_COLOR }} />;
+  }
+
   return (
     <AbsoluteFill style={{ backgroundColor: BACKGROUND_COLOR }}>
       <StaticCaptions />

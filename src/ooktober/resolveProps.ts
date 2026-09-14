@@ -7,6 +7,7 @@ import {
 } from "./constants";
 import { fontsReady } from "./fonts";
 import { getAnimatedText } from "./getAnimatedText";
+import { containsProfanity } from "./moderation";
 import { OoktoberInputProps, OoktoberResolvedProps } from "./schema";
 
 // Shared by the Remotion composition's calculateMetadata (Studio/render) and
@@ -30,5 +31,7 @@ export async function resolveOoktoberProps(
     validateFontIsLoaded: true,
   });
 
-  return { ...input, displayText, insertIndex, hasAnimation, fontSize };
+  const isBlocked = containsProfanity(text);
+
+  return { ...input, displayText, insertIndex, hasAnimation, fontSize, isBlocked };
 }

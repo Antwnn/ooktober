@@ -42,6 +42,7 @@ export const RemotionRoot = () => {
           insertIndex: 4,
           hasAnimation: true,
           fontSize: 200,
+          isBlocked: false,
         }}
         fps={FPS}
         width={CANVAS_WIDTH}

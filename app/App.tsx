@@ -107,6 +107,13 @@ export const App: React.FC = () => {
           />
         </label>
 
+        {resolved?.isBlocked && (
+          <p className="warning">
+            Ongepaste tekst gedetecteerd — alle tekst is verborgen in de
+            video zolang dit woord er staat.
+          </p>
+        )}
+
         <button
           className="download-button"
           onClick={handleDownload}
