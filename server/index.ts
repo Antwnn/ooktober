@@ -178,6 +178,16 @@ app.get("/api/download/:file", (req, res) => {
   res.download(filePath, () => removeFile(filePath));
 });
 
+// In production the built web tool (npm run app:build) is served from here
+// too, so the site and the API share one origin. In dev, Vite serves it.
+const APP_DIST = path.join(PROJECT_ROOT, "app-dist");
+if (fs.existsSync(APP_DIST)) {
+  app.use(express.static(APP_DIST));
+}
+
 app.listen(PORT, () => {
   console.log(`Ooktober render server listening on http://localhost:${PORT}`);
+  // Build the Remotion bundle up front so the first visitor's render
+  // doesn't pay for it.
+  getBundleLocation().catch((err) => console.error(err));
 });
