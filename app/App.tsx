@@ -36,7 +36,7 @@ export const App: React.FC = () => {
   );
   const settings: AnimationSettings = DEFAULT_ANIMATION_SETTINGS;
   const [renderState, setRenderState] = useState<
-    { status: "idle" } | { status: "rendering" } | { status: "error"; message: string } | { status: "done"; downloadUrl: string; fileName: string; photosFile?: File }
+    { status: "idle" } | { status: "rendering" } | { status: "error"; message: string } | { status: "done"; downloadUrl: string; fileName: string } | { status: "tapAgain" }
   >({ status: "idle" });
   const [shareState, setShareState] = useState<ShareState>({ status: "idle" });
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -98,11 +98,14 @@ export const App: React.FC = () => {
 
   // Shared by the download and share flows: renders the current text +
   // settings server-side and returns a URL to the finished mp4.
-  const renderVideoFile = async (): Promise<{ downloadUrl: string }> => {
+  const renderVideoFile = async (
+    videoText: string,
+    videoLanguage: Language,
+  ): Promise<{ downloadUrl: string }> => {
     const response = await fetch("/api/render", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, language, ...settings }),
+      body: JSON.stringify({ text: videoText, language: videoLanguage, ...settings }),
     });
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
@@ -151,42 +154,107 @@ export const App: React.FC = () => {
     return () => URL.revokeObjectURL(downloadUrl);
   }, [renderState]);
 
+  // The rendered mp4 for a given text + language, kept client-side so it's
+  // only rendered once however many times it's downloaded or shared.
+  const videoCacheRef = useRef<{
+    key: string;
+    promise: Promise<File>;
+    file: File | null;
+  } | null>(null);
+  const videoKey = JSON.stringify([text, language]);
+
+  const prepareVideo = (): Promise<File> => {
+    const cached = videoCacheRef.current;
+    if (cached?.key === videoKey) return cached.promise;
+    const entry = {
+      key: videoKey,
+      file: null as File | null,
+      promise: renderVideoFile(text, language)
+        .then(({ downloadUrl }) => fetchRenderedFile(downloadUrl))
+        .then((blob) => {
+          const file = new File([blob], "ooktober.mp4", { type: "video/mp4" });
+          entry.file = file;
+          return file;
+        }),
+    };
+    entry.promise.catch(() => {
+      // Let the next attempt re-render instead of reusing the failure.
+      if (videoCacheRef.current === entry) videoCacheRef.current = null;
+    });
+    videoCacheRef.current = entry;
+    return entry.promise;
+  };
+
   // On phones a plain download lands in Files, not the photo library. A
   // website can only reach the library through the OS share sheet ("Save
-  // Video"), so video downloads on touch devices go through it instead.
-  // No title/text: iOS drops "Save Video" when the share carries text.
-  const saveToPhotos = (file: File) =>
-    navigator.share({ files: [file] }).catch(() => {
-      // Closed, or the render outlasted the tap's user-gesture window —
-      // the "Save to Photos" button under the download button retries it.
-    });
+  // Video"), and only right after a tap — far shorter than a render. So on
+  // touch devices the video is rendered ahead of time, once the user stops
+  // typing, and the Download tap opens the share sheet immediately.
+  const isTouchDevice =
+    typeof window !== "undefined" &&
+    window.matchMedia("(pointer: coarse)").matches &&
+    typeof navigator.share === "function";
 
-  const handleDownload = async () => {
-    setRenderState({ status: "rendering" });
+  useEffect(() => {
+    if (!isTouchDevice || view !== "video" || text.trim().length === 0) return;
+    const timer = setTimeout(() => {
+      prepareVideo().catch(() => {
+        // Surfaced if the user taps Download; nothing to show before that.
+      });
+    }, 1200);
+    return () => clearTimeout(timer);
+    // prepareVideo only depends on text/language, both covered by videoKey.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTouchDevice, view, videoKey]);
+
+  // No title/text: iOS drops "Save Video" when the share carries text.
+  const saveToPhotos = async (file: File) => {
     try {
-      const { downloadUrl } =
-        view === "poster" ? await renderPosterFile() : await renderVideoFile();
-      const blob = await fetchRenderedFile(downloadUrl);
-      const objectUrl = URL.createObjectURL(blob);
-      const fileName = view === "poster" ? "ooktober-poster.pdf" : "ooktober.mp4";
-      const videoFile =
-        view === "video"
-          ? new File([blob], fileName, { type: "video/mp4" })
-          : null;
+      await navigator.share({ files: [file] });
+      setRenderState({ status: "idle" });
+    } catch (err) {
       if (
-        videoFile &&
-        window.matchMedia("(pointer: coarse)").matches &&
-        canWebShareFile(videoFile)
+        err instanceof DOMException &&
+        (err.name === "NotAllowedError" || err.name === "SecurityError")
       ) {
-        setRenderState({
-          status: "done",
-          downloadUrl: objectUrl,
-          fileName,
-          photosFile: videoFile,
-        });
-        await saveToPhotos(videoFile);
+        // The tap came before the video was ready and the render outlasted
+        // its user-gesture window. The file is cached now, so the next tap
+        // on Download opens the share sheet instantly.
+        setRenderState({ status: "tapAgain" });
         return;
       }
+      setRenderState({ status: "idle" });
+    }
+  };
+
+  const handleDownload = async () => {
+    if (view === "video" && isTouchDevice) {
+      const cached = videoCacheRef.current;
+      if (cached?.key === videoKey && cached.file && canWebShareFile(cached.file)) {
+        // Already rendered: share synchronously, inside the tap's gesture.
+        saveToPhotos(cached.file);
+        return;
+      }
+    }
+
+    setRenderState({ status: "rendering" });
+    try {
+      if (view === "video") {
+        const file = await prepareVideo();
+        if (isTouchDevice && canWebShareFile(file)) {
+          await saveToPhotos(file);
+          return;
+        }
+        const objectUrl = URL.createObjectURL(file);
+        setRenderState({ status: "done", downloadUrl: objectUrl, fileName: file.name });
+        saveBlob(objectUrl, file.name);
+        return;
+      }
+      // The poster PDF is always a regular file download (Files on phones).
+      const { downloadUrl } = await renderPosterFile();
+      const blob = await fetchRenderedFile(downloadUrl);
+      const objectUrl = URL.createObjectURL(blob);
+      const fileName = "ooktober-poster.pdf";
       setRenderState({ status: "done", downloadUrl: objectUrl, fileName });
       saveBlob(objectUrl, fileName);
     } catch (err) {
@@ -246,11 +314,16 @@ export const App: React.FC = () => {
       return;
     }
 
+    const cached = videoCacheRef.current;
+    if (cached?.key === videoKey && cached.file && canWebShareFile(cached.file)) {
+      // Already rendered: share synchronously, inside the tap's gesture.
+      await shareFile(cached.file);
+      return;
+    }
+
     setShareState({ status: "preparing" });
     try {
-      const { downloadUrl } = await renderVideoFile();
-      const blob = await fetchRenderedFile(downloadUrl);
-      const file = new File([blob], "ooktober.mp4", { type: "video/mp4" });
+      const file = await prepareVideo();
 
       if (canWebShareFile(file)) {
         await shareFile(file);
@@ -259,7 +332,7 @@ export const App: React.FC = () => {
         // no public Instagram API to preload a story from a website, so we
         // download the video for the user and open Instagram for them to
         // add it to their story themselves.
-        const objectUrl = URL.createObjectURL(blob);
+        const objectUrl = URL.createObjectURL(file);
         saveBlob(objectUrl, file.name);
         setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
         window.open("https://www.instagram.com/", "_blank", "noopener,noreferrer");
@@ -456,28 +529,17 @@ export const App: React.FC = () => {
         {renderState.status === "error" && (
           <p className="error">{renderState.message}</p>
         )}
-        {renderState.status === "done" &&
-          (renderState.photosFile ? (
-            <div className="success">
-              <button
-                type="button"
-                className="save-photos-button"
-                onClick={() => {
-                  if (renderState.photosFile) saveToPhotos(renderState.photosFile);
-                }}
-              >
-                {t.saveToPhotos}
-              </button>
-              <p className="save-photos-hint">{t.saveToPhotosHint}</p>
-            </div>
-          ) : (
-            <p className="success">
-              {t.successDone}{" "}
-              <a href={renderState.downloadUrl} download={renderState.fileName}>
-                {t.successRetryLink}
-              </a>
-            </p>
-          ))}
+        {renderState.status === "tapAgain" && (
+          <p className="success">{t.tapAgainToSave}</p>
+        )}
+        {renderState.status === "done" && (
+          <p className="success">
+            {t.successDone}{" "}
+            <a href={renderState.downloadUrl} download={renderState.fileName}>
+              {t.successRetryLink}
+            </a>
+          </p>
+        )}
       </div>
     </div>
   );
