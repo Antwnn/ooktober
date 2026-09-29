@@ -1,3 +1,19 @@
+@font-face {
+  font-family: "Inter Display";
+  src: url("/font/InterDisplay-Regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter Display";
+  src: url("/font/InterDisplay-SemiBold.otf") format("opentype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -10,79 +26,254 @@ body,
 }
 
 body {
-  font-family:
-    "Poppins", system-ui, -apple-system, "Segoe UI", sans-serif;
-  background: #fdf1f5;
+  font-family: "Inter Display", system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: #fadee6;
   color: #2a1420;
+  overflow-x: hidden;
 }
 
+/* Desktop: two columns — intro+form on the left, the video preview on the
+   right (spanning both rows). Mobile overrides this to a single stacked
+   column with the preview between the intro text and the form, matching
+   the Figma mobile layout (node 15:606). */
 .page {
+  position: relative;
   min-height: 100vh;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(0, 620px) minmax(280px, 460px);
+  grid-template-areas:
+    "intro preview"
+    "form preview";
+  align-content: center;
   justify-content: center;
-  gap: 48px;
+  column-gap: 64px;
   padding: 48px 24px;
 }
 
-.panel {
-  max-width: 420px;
+.language-switch,
+.view-switch {
+  position: absolute;
+  top: 24px;
+  display: flex;
+  gap: 4px;
+  background: #fdeff3;
+  border-radius: 9px;
+  padding: 4px;
+  z-index: 1;
+}
+
+.language-switch {
+  right: 24px;
+}
+
+.view-switch {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.language-switch button,
+.view-switch button {
+  border: none;
+  background: transparent;
+  color: #e34c81;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.language-switch button:hover,
+.view-switch button:hover {
+  background: #f5c1d0;
+}
+
+.language-switch button.active,
+.view-switch button.active {
+  background: #e34c81;
+  color: white;
+}
+
+/* Grid/flex items default to `min-width: auto`, which lets a child's
+   intrinsic content size (notably the Remotion <Player>) force its track
+   wider than the viewport instead of shrinking to fit. Reset it on every
+   direct grid item so percentage widths inside are actually honored. */
+.panel-intro,
+.panel-form,
+.preview {
+  min-width: 0;
+}
+
+.panel-intro {
+  grid-area: intro;
+  max-width: 620px;
   width: 100%;
 }
 
-.panel h1 {
-  font-size: 32px;
-  margin: 0 0 12px;
-  color: #e34c81;
+.panel-form {
+  grid-area: form;
+  max-width: 620px;
+  width: 100%;
+}
+
+.preview {
+  grid-area: preview;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo-image {
+  display: block;
+  width: 412px;
+  max-width: 100%;
+  height: auto;
 }
 
 .subtitle {
-  color: #6b4a58;
-  line-height: 1.5;
-  margin-bottom: 28px;
+  color: #f3acc1;
+  line-height: 1.3;
+  font-size: 18px;
+  font-weight: 400;
+  margin: 35px 0 77px;
+  max-width: 408px;
+}
+
+.fields-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 19px;
+  margin-bottom: 57px;
+}
+
+/* Lets the 5 animation-tuning fields (rendered by SettingsFields) fall
+   into the parent grid as if they were direct children on desktop. */
+.settings-fields {
+  display: contents;
 }
 
 .field {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-bottom: 20px;
-  font-weight: 600;
-  font-size: 14px;
-  color: #4a2c38;
 }
 
-.field input {
-  font-size: 18px;
-  padding: 12px 14px;
-  border-radius: 10px;
-  border: 2px solid #f3acc1;
+.field-label {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 14px;
+  font-weight: 400;
+  color: #f3acc1;
+}
+
+.field-box {
+  background: #fdeff3;
+  border-radius: 9px;
+  padding: 15px;
+  display: flex;
+  align-items: center;
+}
+
+.field-box input[type="text"] {
+  width: 100%;
+  border: none;
   outline: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 400;
+  color: #e34c81;
+  padding: 0;
+}
+
+.field-box input[type="text"]::placeholder {
+  color: #f3acc1;
   font-weight: 400;
 }
 
-.field input:focus {
-  border-color: #e34c81;
+.field-box--slider {
+  gap: 14px;
 }
 
-.download-button {
+.field-value {
+  flex: none;
+  font-size: 18px;
+  font-weight: 400;
+  color: #e34c81;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.field-box input[type="range"] {
+  flex: 1;
+  min-width: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 1px;
+  background: #f5c1d0;
+  cursor: pointer;
+}
+
+.field-box input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #e34c81;
+  cursor: pointer;
+  margin-top: -4.5px;
+}
+
+.field-box input[type="range"]::-moz-range-track {
+  height: 1px;
+  background: #f5c1d0;
+}
+
+.field-box input[type="range"]::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border: none;
+  border-radius: 50%;
+  background: #e34c81;
+  cursor: pointer;
+}
+
+.share-button,
+.download-button,
+.donate-button {
+  grid-column: 1;
   width: 100%;
-  padding: 14px 18px;
-  font-size: 16px;
-  font-weight: 700;
+  padding: 15px;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
   color: white;
   background: #e34c81;
   border: none;
-  border-radius: 10px;
+  border-radius: 9px;
   cursor: pointer;
   transition: background 0.15s ease;
 }
 
-.download-button:hover:not(:disabled) {
+/* .donate-button is an <a>, not a <button> — needs the box/text behavior
+   the other two get for free from the UA button stylesheet. */
+.donate-button {
+  display: block;
+  box-sizing: border-box;
+  text-align: center;
+  text-decoration: none;
+}
+
+.share-button:hover:not(:disabled),
+.download-button:hover:not(:disabled),
+.donate-button:hover {
   background: #cf3d70;
 }
 
+.share-button:disabled,
 .download-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
@@ -91,6 +282,7 @@ body {
 .error {
   color: #b3261e;
   margin-top: 14px;
+  font-size: 14px;
 }
 
 .warning {
@@ -100,119 +292,139 @@ body {
   border-radius: 8px;
   padding: 10px 12px;
   font-size: 13px;
-  margin-bottom: 16px;
+  margin-top: 16px;
 }
 
 .success {
   color: #1e7a3c;
   margin-top: 14px;
-}
-
-.settings-toggle {
-  width: 100%;
-  padding: 10px 14px;
-  margin-top: 10px;
   font-size: 14px;
-  font-weight: 600;
-  color: #e34c81;
-  background: white;
-  border: 2px solid #f3acc1;
-  border-radius: 10px;
-  cursor: pointer;
-}
-
-.settings-toggle:hover {
-  border-color: #e34c81;
-}
-
-.settings-panel {
-  margin-top: 16px;
-  padding: 18px 20px;
-  background: white;
-  border: 2px solid #f3acc1;
-  border-radius: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
-.settings-panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.settings-panel-header h2 {
-  font-size: 16px;
-  margin: 0;
-  color: #e34c81;
-}
-
-.settings-close {
-  background: none;
-  border: none;
-  font-size: 22px;
-  line-height: 1;
-  color: #6b4a58;
-  cursor: pointer;
-  padding: 0 4px;
-}
-
-.settings-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.settings-field-header {
-  display: flex;
-  justify-content: space-between;
-  font-size: 13px;
-  font-weight: 600;
-  color: #4a2c38;
-}
-
-.settings-value {
-  color: #e34c81;
-  font-variant-numeric: tabular-nums;
-}
-
-.settings-field input[type="range"] {
-  width: 100%;
-  accent-color: #e34c81;
-}
-
-.settings-help {
-  font-size: 11px;
-  color: #9a7684;
-}
-
-.settings-reset {
-  align-self: flex-start;
-  padding: 8px 14px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #6b4a58;
-  background: #fdf1f5;
-  border: 1px solid #f3acc1;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-.settings-reset:hover {
-  background: #f9dee7;
-}
-
-.preview {
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .phone {
+  position: relative;
   width: min(360px, 80vw);
-  border-radius: 28px;
+  min-width: 0;
+  background: white;
+  /* The Remotion Player scales its inner canvas with a CSS transform,
+     which paints outside this box unless clipped — invisible at desktop
+     width (ample surrounding margin) but overflows the viewport at
+     mobile width. */
   overflow: hidden;
-  box-shadow: 0 20px 60px rgba(227, 76, 129, 0.35);
-  background: #e34c81;
+}
+
+/* Driven by the Fullscreen API (see toggleFullscreen in App.tsx) rather
+   than the `:fullscreen` pseudo-class, so it matches the JS state we track
+   for the button's own icon/label in every browser. */
+.phone--fullscreen {
+  width: 100vw;
+  aspect-ratio: unset !important;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000000;
+}
+
+.fullscreen-button {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.85);
+  color: #e34c81;
+  cursor: pointer;
+  z-index: 1;
+  transition: background 0.15s ease;
+}
+
+.fullscreen-button:hover {
+  background: #ffffff;
+}
+
+@media (max-width: 900px) {
+  .page {
+    column-gap: 40px;
+    padding: 32px 20px;
+  }
+}
+
+/* Mobile (Figma node 15:606, 402px reference frame): single stacked
+   column — the two switches on their own top row (video/poster left,
+   language right, with the page's top padding reserving that row so they
+   never overlap the logo), then logo/subtitle, the text input, the
+   preview, and finally the action buttons. The form panel and its grid are
+   flattened with `display: contents` so the text input can be pulled out
+   ahead of the preview via `order` while the buttons stay below it. The
+   animation settings sliders are desktop-only and hidden here. */
+@media (max-width: 640px) {
+  .page {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 84px 20px 20px;
+  }
+
+  .language-switch,
+  .view-switch {
+    top: 20px;
+  }
+
+  .language-switch {
+    right: 20px;
+  }
+
+  .view-switch {
+    left: 20px;
+    transform: none;
+  }
+
+  .panel-form,
+  .fields-grid {
+    display: contents;
+  }
+
+  .panel-form > *,
+  .fields-grid > * {
+    order: 3;
+  }
+
+  .fields-grid > .field {
+    order: 1;
+    margin-top: 34px;
+  }
+
+  .preview {
+    order: 2;
+    margin: 18px 0;
+  }
+
+  .panel-intro {
+    max-width: none;
+  }
+
+  .subtitle {
+    margin: 50px 0 0;
+    max-width: none;
+    padding-right: 44px;
+  }
+
+  .preview {
+    width: 100%;
+  }
+
+  .phone {
+    width: 100%;
+    max-width: none;
+  }
+
+  .settings-fields {
+    display: none;
+  }
 }

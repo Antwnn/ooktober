@@ -1,20 +1,46 @@
 import { bundle } from "@remotion/bundler";
-import { renderMedia, selectComposition } from "@remotion/renderer";
+import { renderMedia, renderStill, selectComposition } from "@remotion/renderer";
 import cors from "cors";
 import express from "express";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
-import { ooktoberSchema } from "../src/ooktober/schema";
+import PDFDocument from "pdfkit";
+import sharp from "sharp";
+import { ooktoberSchema, posterSchema } from "../src/ooktober/schema";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, "..");
-const OUT_DIR = path.join(PROJECT_ROOT, "out");
 const COMPOSITION_ID = "OoktoberWord";
 const PORT = Number(process.env.PORT) || 3001;
 
-fs.mkdirSync(OUT_DIR, { recursive: true });
+// Rendered files are transient: they live in a private folder under the OS
+// temp dir, are deleted as soon as they've been sent once, and anything never
+// fetched is swept after FILE_TTL_MS. The folder itself is removed on exit.
+const OUT_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "ooktober-"));
+const FILE_TTL_MS = 2 * 60 * 1000;
+
+const removeFile = (filePath: string) => fs.rm(filePath, { force: true }, () => {});
+
+// Safety net for renders whose download never arrives (tab closed, network
+// error…). Each file gets its own timer, cleared if it's downloaded first.
+const expiryTimers = new Map<string, NodeJS.Timeout>();
+const scheduleExpiry = (fileName: string) => {
+  const timer = setTimeout(() => {
+    expiryTimers.delete(fileName);
+    removeFile(path.join(OUT_DIR, fileName));
+  }, FILE_TTL_MS);
+  timer.unref();
+  expiryTimers.set(fileName, timer);
+};
+
+const cleanupOutDir = () => fs.rmSync(OUT_DIR, { recursive: true, force: true });
+process.on("exit", cleanupOutDir);
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.on(signal, () => process.exit(0));
+}
 
 const app = express();
 app.use(cors());
@@ -39,6 +65,9 @@ app.post("/api/render", async (req, res) => {
     return;
   }
 
+  const fileName = `ooktober-${Date.now()}-${randomUUID().slice(0, 8)}.mp4`;
+  const outputLocation = path.join(OUT_DIR, fileName);
+
   try {
     const serveUrl = await getBundleLocation();
     const inputProps = parsed.data;
@@ -49,9 +78,6 @@ app.post("/api/render", async (req, res) => {
       inputProps,
     });
 
-    const fileName = `ooktober-${Date.now()}-${randomUUID().slice(0, 8)}.mp4`;
-    const outputLocation = path.join(OUT_DIR, fileName);
-
     await renderMedia({
       composition,
       serveUrl,
@@ -60,12 +86,81 @@ app.post("/api/render", async (req, res) => {
       inputProps,
     });
 
+    scheduleExpiry(fileName);
     res.json({ downloadUrl: `/api/download/${fileName}` });
   } catch (err) {
     console.error(err);
+    removeFile(outputLocation);
     res.status(500).json({
       error: err instanceof Error ? err.message : "Render failed.",
     });
+  }
+});
+
+app.post("/api/poster-render", async (req, res) => {
+  const parsed = posterSchema.safeParse(req.body);
+  if (!parsed.success || parsed.data.text.trim().length === 0) {
+    res.status(400).json({ error: "A non-empty 'text' field is required." });
+    return;
+  }
+
+  const id = `ooktober-poster-${Date.now()}-${randomUUID().slice(0, 8)}`;
+  const pngPath = path.join(OUT_DIR, `${id}.png`);
+  const cmykJpegPath = path.join(OUT_DIR, `${id}-cmyk.jpg`);
+  const pdfFileName = `${id}.pdf`;
+  const pdfPath = path.join(OUT_DIR, pdfFileName);
+
+  try {
+    const serveUrl = await getBundleLocation();
+    const inputProps = parsed.data;
+
+    const composition = await selectComposition({
+      serveUrl,
+      id: "OoktoberPoster",
+      inputProps,
+    });
+
+    await renderStill({
+      composition,
+      serveUrl,
+      output: pngPath,
+      inputProps,
+    });
+
+    // Print-ready poster: convert the rendered artboard to CMYK (the color
+    // space print shops expect, as opposed to the RGB the browser rendered
+    // it in) and embed it in an A3 PDF page, edge to edge — the artboard's
+    // own 3000x4240 aspect ratio already matches A3's (see constants.ts).
+    await sharp(pngPath)
+      .flatten({ background: "#ffffff" })
+      .toColourspace("cmyk")
+      .jpeg({ quality: 95, chromaSubsampling: "4:4:4" })
+      .toFile(cmykJpegPath);
+
+    await new Promise<void>((resolve, reject) => {
+      const doc = new PDFDocument({ size: "A3", margin: 0 });
+      const stream = fs.createWriteStream(pdfPath);
+      doc.pipe(stream);
+      doc.image(cmykJpegPath, 0, 0, {
+        width: doc.page.width,
+        height: doc.page.height,
+      });
+      doc.end();
+      stream.on("finish", () => resolve());
+      stream.on("error", reject);
+    });
+
+    scheduleExpiry(pdfFileName);
+    res.json({ downloadUrl: `/api/download/${pdfFileName}` });
+  } catch (err) {
+    console.error(err);
+    removeFile(pdfPath);
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "Poster render failed.",
+    });
+  } finally {
+    removeFile(pngPath);
+    removeFile(cmykJpegPath);
   }
 });
 
@@ -76,7 +171,11 @@ app.get("/api/download/:file", (req, res) => {
     res.status(404).json({ error: "File not found." });
     return;
   }
-  res.download(filePath);
+  // One-shot link: the file is deleted as soon as the transfer ends
+  // (successfully or not), so it never outlives its single download.
+  clearTimeout(expiryTimers.get(fileName));
+  expiryTimers.delete(fileName);
+  res.download(filePath, () => removeFile(filePath));
 });
 
 app.listen(PORT, () => {

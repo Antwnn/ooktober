@@ -1,9 +1,7 @@
-import { measureText } from "@remotion/layout-utils";
 import React, { useMemo } from "react";
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import {
   AFTER_REACTION_STRENGTH,
-  CANVAS_WIDTH,
   DYNAMIC_FONT_FAMILY,
   EASING_IN_POWER,
   EASING_OUT_POWER,
@@ -12,11 +10,15 @@ import {
   SCALE_X_TIMES,
   SEQUENCE_DURATION_SECONDS,
   TEXT_COLOR,
-  WORD_CENTER_Y,
+  WORD_BASELINE_RATIO,
+  WORD_BASELINE_Y,
   WORD_LETTER_SPACING,
+  WORD_LETTER_SPACING_AFTER_O,
+  WORD_LETTER_SPACING_AFTER_O_EM,
+  WORD_LETTER_SPACING_EM,
   WORD_MARGIN,
-  WORD_SLOT_HEIGHT,
 } from "./constants";
+import { measureInk, measureSplitWordInk } from "./measureInk";
 
 type Props = {
   displayText: string;
@@ -26,6 +28,13 @@ type Props = {
   // Manual overrides for the dynamic word — undefined falls back to the
   // calibrated defaults above.
   margin?: number;
+  // Overrides WORD_BASELINE_Y — used to reposition the word onto Not
+  // Detected-Bis.svg's baked watermark spot in the no-"o" fallback (see
+  // OoktoberComposition), instead of the usual fixed baseline.
+  baselineY?: number;
+  // Overrides TEXT_COLOR — the no-"o" fallback word is drawn in
+  // TEXT_COLOR_NOT_DETECTED on its white background (see OoktoberComposition).
+  color?: string;
   stretchPeak?: number;
   sequenceDurationSeconds?: number;
   easingOutPower?: number;
@@ -73,19 +82,31 @@ const useScaleX = ({
   });
 };
 
-const getWordContainerStyle = (margin: number): React.CSSProperties => ({
+// Right-anchored and pinned to a fixed baseline. `width` is the block's
+// current (possibly mid-animation) *advance* width, computed explicitly in
+// JS rather than left to the browser's own shrink-to-fit — that auto-width
+// pass turned out to be unreliable for an absolutely-positioned flex
+// container in the renderer, letting the block overflow past the canvas
+// edge. `rightOffset` is `margin` plus however far the word's painted ink
+// overshoots past its own advance box on the right (see measureInk.ts) —
+// without it, that overshoot (e.g. the trailing "e"'s curl) would paint
+// past the margin even though the advance box itself stops exactly at it.
+// Together they place the box so the *ink*, not just the advance box,
+// stops exactly at the right margin — and it stays there as the duplicated
+// "o" deforms the block's width, since only the (left-side) content shifts.
+// `top` is derived from the font's own ascent/descent ratio
+// (WORD_BASELINE_RATIO) so the baseline itself lands on WORD_BASELINE_Y
+// regardless of fontSize.
+const getWordContainerStyle = (
+  rightOffset: number,
+  fontSize: number,
+  width: number,
+  baselineY: number,
+): React.CSSProperties => ({
   position: "absolute",
-  left: margin,
-  width: CANVAS_WIDTH - margin * 2,
-  top: WORD_CENTER_Y - WORD_SLOT_HEIGHT / 2,
-  height: WORD_SLOT_HEIGHT,
-  display: "flex",
-  alignItems: "center",
-  // The whole word block (including the duplicated "o" mid-animation) stays
-  // centered: the "o"'s current width is a real layout width (not just a
-  // transform), so the flex row's own width genuinely changes as it
-  // deforms, and centering follows it automatically every frame.
-  justifyContent: "center",
+  right: rightOffset,
+  top: baselineY - fontSize * WORD_BASELINE_RATIO,
+  width,
   overflow: "visible",
 });
 
@@ -95,6 +116,8 @@ export const AnimatedWord: React.FC<Props> = ({
   hasAnimation,
   fontSize,
   margin = WORD_MARGIN,
+  baselineY = WORD_BASELINE_Y,
+  color = TEXT_COLOR,
   stretchPeak,
   sequenceDurationSeconds,
   easingOutPower,
@@ -106,30 +129,32 @@ export const AnimatedWord: React.FC<Props> = ({
     easingOutPower,
     easingInPower,
   });
-  const wordContainerStyle = getWordContainerStyle(margin);
 
   const textStyle: React.CSSProperties = {
     fontFamily: DYNAMIC_FONT_FAMILY,
     fontWeight: 400,
     fontSize,
-    color: TEXT_COLOR,
+    color,
     letterSpacing: WORD_LETTER_SPACING,
     lineHeight: 1,
     whiteSpace: "nowrap",
   };
 
-  const oWidth = useMemo(() => {
-    if (!hasAnimation) return 0;
-    return measureText({
-      text: "o",
-      fontFamily: DYNAMIC_FONT_FAMILY,
-      fontSize,
-      letterSpacing: WORD_LETTER_SPACING,
-      validateFontIsLoaded: true,
-    }).width;
-  }, [hasAnimation, fontSize]);
+  // The full (settled, scaleX === 1) word's ink metrics — used only for the
+  // non-animated rendering below, measured as one uniformly-spaced string.
+  const fullTextInk = useMemo(
+    () => measureInk(displayText, DYNAMIC_FONT_FAMILY, fontSize, WORD_LETTER_SPACING_EM),
+    [displayText, fontSize],
+  );
 
   if (!hasAnimation || insertIndex === null) {
+    const rightOffset = margin + fullTextInk.overshootRight;
+    const wordContainerStyle = getWordContainerStyle(
+      rightOffset,
+      fontSize,
+      fullTextInk.advanceWidth,
+      baselineY,
+    );
     return (
       <div style={wordContainerStyle}>
         <span style={textStyle}>{displayText}</span>
@@ -140,9 +165,36 @@ export const AnimatedWord: React.FC<Props> = ({
   const before = displayText.slice(0, insertIndex);
   const after = displayText.slice(insertIndex + 1);
 
+  // Measured piecewise (rather than as one uniformly-spaced string) so the
+  // gap right after the duplicated "O" can use its own, tighter,
+  // letter-spacing (WORD_LETTER_SPACING_AFTER_O_EM) — mirrors the fitting
+  // resolveProps.ts did for this same word, so the settled state below
+  // still touches the margin exactly.
+  const splitInk = useMemo(
+    () =>
+      measureSplitWordInk(
+        before,
+        after,
+        DYNAMIC_FONT_FAMILY,
+        fontSize,
+        WORD_LETTER_SPACING_EM,
+        WORD_LETTER_SPACING_AFTER_O_EM,
+      ),
+    [before, after, fontSize],
+  );
+  const oWidth = splitInk.oWidth;
+  const rightOffset = margin + splitInk.overshootRight;
+
   // A tiny reaction on the letters right after the "o" during the overshoot
   // peak, settling back in sync with the "o" itself.
   const afterScale = 1 + AFTER_REACTION_STRENGTH * Math.max(0, scaleX - 1);
+
+  // The "O" is the only part of the word whose width changes frame to
+  // frame (via scaleX) — the current total width is the settled width plus
+  // however far the "O" currently deviates from its own settled (scaleX 1)
+  // width.
+  const currentWidth = splitInk.advanceWidth + oWidth * (scaleX - 1);
+  const wordContainerStyle = getWordContainerStyle(rightOffset, fontSize, currentWidth, baselineY);
 
   return (
     <div style={wordContainerStyle}>
@@ -150,11 +202,16 @@ export const AnimatedWord: React.FC<Props> = ({
         style={{ display: "flex", flexDirection: "row", alignItems: "baseline" }}
       >
         <span style={textStyle}>{before}</span>
-        {/* The outer span's width is the "o"'s real (current) layout width,
-            so the row reflows and re-centers as it deforms. The inner span
+        {/* The outer span's width is the "O"'s real (current) layout width,
+            so the row's total width genuinely changes as it deforms — and
+            since the outer container is right-anchored (`right:
+            rightOffset`, no explicit width), that reflow only ever pushes
+            the left edge around, never the right margin. The inner span
             renders the glyph at its natural width and is visually squeezed
-            to fit via scaleX, anchored on its left edge (which is where the
-            sizer places it) so the two stay in sync every frame. */}
+            to fit via scaleX, anchored on its left edge (which is where
+            the sizer places it) so the two stay in sync every frame. The
+            duplicated letter is always a capital "O", regardless of case
+            elsewhere in the word. */}
         <span
           style={{
             display: "inline-block",
@@ -165,12 +222,13 @@ export const AnimatedWord: React.FC<Props> = ({
           <span
             style={{
               ...textStyle,
+              letterSpacing: WORD_LETTER_SPACING_AFTER_O,
               display: "inline-block",
               transformOrigin: "0% 50%",
               transform: `scaleX(${scaleX})`,
             }}
           >
-            o
+            O
           </span>
         </span>
         <span
@@ -178,7 +236,11 @@ export const AnimatedWord: React.FC<Props> = ({
             ...textStyle,
             display: "inline-block",
             transformOrigin: "0% 50%",
-            transform: `scale(${afterScale})`,
+            // scaleX only — a uniform scale() here would also stretch Y,
+            // and since transformOrigin is vertically centered on the
+            // glyph box (not on the baseline), that visibly shifts the
+            // text off the baseline as afterScale changes over the frame.
+            transform: `scaleX(${afterScale})`,
           }}
         >
           {after}

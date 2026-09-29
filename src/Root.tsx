@@ -4,14 +4,18 @@ import { Main } from "./Main";
 import { calculateMetadata } from "./calculate-metadata/calculate-metadata";
 import { schema } from "./calculate-metadata/schema";
 import { calculateOoktoberMetadata } from "./ooktober/calculateMetadata";
+import { calculatePosterMetadata } from "./ooktober/calculatePosterMetadata";
 import {
   CANVAS_HEIGHT,
   CANVAS_WIDTH,
   FPS,
+  POSTER_CANVAS_HEIGHT,
+  POSTER_CANVAS_WIDTH,
   TOTAL_DURATION_FRAMES,
 } from "./ooktober/constants";
 import { OoktoberComposition } from "./ooktober/OoktoberComposition";
-import { ooktoberSchema } from "./ooktober/schema";
+import { PosterComposition } from "./ooktober/PosterComposition";
+import { ooktoberSchema, posterSchema } from "./ooktober/schema";
 
 export const RemotionRoot = () => {
   return (
@@ -43,6 +47,9 @@ export const RemotionRoot = () => {
           hasAnimation: true,
           fontSize: 200,
           isBlocked: false,
+          noODetected: false,
+          outlineFontSize: 0,
+          wordMargin: 40,
         }}
         fps={FPS}
         width={CANVAS_WIDTH}
@@ -50,6 +57,23 @@ export const RemotionRoot = () => {
         durationInFrames={TOTAL_DURATION_FRAMES}
         calculateMetadata={calculateOoktoberMetadata}
         schema={ooktoberSchema}
+      />
+      <Composition
+        id="OoktoberPoster"
+        component={PosterComposition}
+        defaultProps={{
+          text: "Antoine",
+          displayText: "antOoine",
+          hasAnimation: true,
+          fontSize: 800,
+          isBlocked: false,
+        }}
+        fps={1}
+        width={POSTER_CANVAS_WIDTH}
+        height={POSTER_CANVAS_HEIGHT}
+        durationInFrames={1}
+        calculateMetadata={calculatePosterMetadata}
+        schema={posterSchema}
       />
     </>
   );
