@@ -15,6 +15,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 const COMPOSITION_ID = "OoktoberWord";
 const PORT = Number(process.env.PORT) || 3001;
+const RENDER_THREADS = Number(process.env.RENDER_THREADS) || 2;
 
 // Rendered files are transient: they live in a private folder under the OS
 // temp dir, are deleted as soon as they've been sent once, and anything never
@@ -84,6 +85,16 @@ app.post("/api/render", async (req, res) => {
       codec: "h264",
       outputLocation,
       inputProps,
+      // Hosted containers report the host's CPU count (60+ on Railway), so
+      // Remotion and x264 would spawn that many workers and blow the memory
+      // limit. Cap both; RENDER_THREADS can raise it on a bigger machine.
+      concurrency: RENDER_THREADS,
+      ffmpegOverride: ({ args }) => [
+        ...args.slice(0, -1),
+        "-threads",
+        String(RENDER_THREADS),
+        args[args.length - 1],
+      ],
     });
 
     scheduleExpiry(fileName);
