@@ -48,7 +48,15 @@ app.use(cors());
 app.use(express.json());
 
 // The Remotion bundle only needs to be built once; every render reuses it.
-let bundleLocationPromise: Promise<string> | null = null;
+// In production the Docker image prebuilds it (npm run build → build/), so
+// the server never runs webpack at runtime, which is too memory-hungry to
+// share a small container with Chrome.
+const PREBUILT_BUNDLE = path.join(PROJECT_ROOT, "build");
+let bundleLocationPromise: Promise<string> | null = fs.existsSync(
+  path.join(PREBUILT_BUNDLE, "index.html"),
+)
+  ? Promise.resolve(PREBUILT_BUNDLE)
+  : null;
 const getBundleLocation = () => {
   if (!bundleLocationPromise) {
     bundleLocationPromise = bundle({

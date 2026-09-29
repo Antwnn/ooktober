@@ -14,9 +14,10 @@ RUN npm ci
 
 COPY . .
 
-# Build the web tool (served by the Express server) and download Chrome
-# at build time so the first render doesn't have to.
-RUN npm run app:build && npx remotion browser ensure
+# Build the web tool (served by the Express server), prebuild the Remotion
+# bundle and download Chrome at build time, so the running server only
+# renders and never has to run webpack.
+RUN npm run app:build && npm run build && npx remotion browser ensure
 
 ENV NODE_ENV=production
 CMD ["npm", "run", "server"]
