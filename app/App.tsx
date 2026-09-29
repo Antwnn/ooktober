@@ -36,7 +36,7 @@ export const App: React.FC = () => {
   );
   const settings: AnimationSettings = DEFAULT_ANIMATION_SETTINGS;
   const [renderState, setRenderState] = useState<
-    { status: "idle" } | { status: "rendering" } | { status: "error"; message: string } | { status: "done"; downloadUrl: string; fileName: string }
+    { status: "idle" } | { status: "rendering" } | { status: "error"; message: string } | { status: "done"; downloadUrl: string; fileName: string; photosFile?: File }
   >({ status: "idle" });
   const [shareState, setShareState] = useState<ShareState>({ status: "idle" });
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -151,13 +151,42 @@ export const App: React.FC = () => {
     return () => URL.revokeObjectURL(downloadUrl);
   }, [renderState]);
 
+  // On phones a plain download lands in Files, not the photo library. A
+  // website can only reach the library through the OS share sheet ("Save
+  // Video"), so video downloads on touch devices go through it instead.
+  // No title/text: iOS drops "Save Video" when the share carries text.
+  const saveToPhotos = (file: File) =>
+    navigator.share({ files: [file] }).catch(() => {
+      // Closed, or the render outlasted the tap's user-gesture window —
+      // the "Save to Photos" button under the download button retries it.
+    });
+
   const handleDownload = async () => {
     setRenderState({ status: "rendering" });
     try {
       const { downloadUrl } =
         view === "poster" ? await renderPosterFile() : await renderVideoFile();
-      const objectUrl = URL.createObjectURL(await fetchRenderedFile(downloadUrl));
+      const blob = await fetchRenderedFile(downloadUrl);
+      const objectUrl = URL.createObjectURL(blob);
       const fileName = view === "poster" ? "ooktober-poster.pdf" : "ooktober.mp4";
+      const videoFile =
+        view === "video"
+          ? new File([blob], fileName, { type: "video/mp4" })
+          : null;
+      if (
+        videoFile &&
+        window.matchMedia("(pointer: coarse)").matches &&
+        canWebShareFile(videoFile)
+      ) {
+        setRenderState({
+          status: "done",
+          downloadUrl: objectUrl,
+          fileName,
+          photosFile: videoFile,
+        });
+        await saveToPhotos(videoFile);
+        return;
+      }
       setRenderState({ status: "done", downloadUrl: objectUrl, fileName });
       saveBlob(objectUrl, fileName);
     } catch (err) {
@@ -427,14 +456,28 @@ export const App: React.FC = () => {
         {renderState.status === "error" && (
           <p className="error">{renderState.message}</p>
         )}
-        {renderState.status === "done" && (
-          <p className="success">
-            {t.successDone}{" "}
-            <a href={renderState.downloadUrl} download={renderState.fileName}>
-              {t.successRetryLink}
-            </a>
-          </p>
-        )}
+        {renderState.status === "done" &&
+          (renderState.photosFile ? (
+            <div className="success">
+              <button
+                type="button"
+                className="save-photos-button"
+                onClick={() => {
+                  if (renderState.photosFile) saveToPhotos(renderState.photosFile);
+                }}
+              >
+                {t.saveToPhotos}
+              </button>
+              <p className="save-photos-hint">{t.saveToPhotosHint}</p>
+            </div>
+          ) : (
+            <p className="success">
+              {t.successDone}{" "}
+              <a href={renderState.downloadUrl} download={renderState.fileName}>
+                {t.successRetryLink}
+              </a>
+            </p>
+          ))}
       </div>
     </div>
   );
