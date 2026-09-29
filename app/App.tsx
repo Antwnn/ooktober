@@ -36,7 +36,7 @@ export const App: React.FC = () => {
   );
   const settings: AnimationSettings = DEFAULT_ANIMATION_SETTINGS;
   const [renderState, setRenderState] = useState<
-    { status: "idle" } | { status: "rendering" } | { status: "error"; message: string } | { status: "done"; downloadUrl: string; fileName: string } | { status: "tapAgain" }
+    { status: "idle" } | { status: "rendering" } | { status: "error"; message: string } | { status: "done"; downloadUrl: string; fileName: string } | { status: "tapAgain" } | { status: "saved" }
   >({ status: "idle" });
   const [shareState, setShareState] = useState<ShareState>({ status: "idle" });
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -211,7 +211,10 @@ export const App: React.FC = () => {
   const saveToPhotos = async (file: File) => {
     try {
       await navigator.share({ files: [file] });
-      setRenderState({ status: "idle" });
+      // Resolves once an action was picked in the share sheet (it rejects
+      // if the sheet is dismissed). Confirm it: without this, nothing on the
+      // page shows the video was saved and people download it again.
+      setRenderState({ status: "saved" });
     } catch (err) {
       if (
         err instanceof DOMException &&
@@ -528,6 +531,31 @@ export const App: React.FC = () => {
         )}
         {renderState.status === "error" && (
           <p className="error">{renderState.message}</p>
+        )}
+        {renderState.status === "saved" && (
+          <div
+            className="saved-overlay"
+            onClick={() => setRenderState({ status: "idle" })}
+          >
+            <div
+              className="saved-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="saved-title"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="saved-check" aria-hidden="true">✓</div>
+              <h2 id="saved-title">{t.savedTitle}</h2>
+              <p>{t.savedText}</p>
+              <button
+                type="button"
+                className="download-button"
+                onClick={() => setRenderState({ status: "idle" })}
+              >
+                {t.savedOk}
+              </button>
+            </div>
+          </div>
         )}
         {renderState.status === "tapAgain" && (
           <p className="success">{t.tapAgainToSave}</p>
