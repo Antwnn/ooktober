@@ -34,9 +34,10 @@ export type OoktoberResolvedProps = OoktoberInputProps & {
   // Not Detected artwork, and the raw input
   // itself is drawn as outline text (see OutlineWord.tsx).
   noODetected: boolean;
-  // Fitted font-size for the outline word — 0 when not shown (i.e.
-  // !noODetected or an empty/whitespace-only input).
-  outlineFontSize: number;
+  // The outline word's glyph outlines as SVG path data, already fitted and
+  // placed in canvas coordinates (see outlinePath.ts) — "" when not shown
+  // (i.e. !noODetected or an empty/whitespace-only input).
+  outlinePath: string;
   // The margin the animated word (fontSize above) was actually fit
   // against: the input's own `margin` normally, or FALLBACK_ANIM_MARGIN
   // when noODetected — since that fallback word is repositioned onto the

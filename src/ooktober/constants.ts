@@ -87,7 +87,7 @@ export const AFTER_REACTION_STRENGTH = 0.05;
 // mirrored dynamically in OutlineWord.tsx). Drawn in the same pink as the
 // animated word (TEXT_COLOR_NOT_DETECTED) on the white no-"o" background.
 export const OUTLINE_STROKE_COLOR = "#E34C81";
-export const OUTLINE_STROKE_WIDTH = 0.8;
+export const OUTLINE_STROKE_WIDTH = 1;
 
 // Not Detected-Bis.svg bakes a static "ooktober" watermark (its own
 // clip2 rect, and confirmed by directly sampling the rendered background:

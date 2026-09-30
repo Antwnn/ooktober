@@ -42,7 +42,6 @@ function measureSpacedText(
     actualBoundingBoxLeft: metrics.actualBoundingBoxLeft,
     actualBoundingBoxRight:
       metrics.actualBoundingBoxRight + manualSpacing * Math.max(0, charCount - 1),
-    actualBoundingBoxAscent: metrics.actualBoundingBoxAscent,
   };
 }
 
@@ -67,39 +66,6 @@ export function measureInk(
     overshootLeft,
     overshootRight,
     inkWidth: overshootLeft + metrics.width + overshootRight,
-  };
-}
-
-export type InkBox = {
-  // Signed distance from the alignment point (left edge of the advance box)
-  // to the ink's left edge, going left — negative when the first glyph's
-  // ink starts to the *right* of that point (positive side bearing).
-  left: number;
-  // Distance from the alignment point to the ink's right edge.
-  right: number;
-  // Distance from the baseline up to the highest painted pixel — depends on
-  // the actual letters (e.g. "emma" has no ascenders, "lola" does).
-  ascent: number;
-  // Exact painted width, from the first glyph's ink to the last one's.
-  width: number;
-};
-
-// The tight box around the painted ink of `text`, on both axes — unlike
-// measureInk above, which only corrects for ink *overshooting* the advance
-// box and always assumes the font's full line height vertically. Used where
-// the ink itself must touch margins on every side (see OutlineWord.tsx).
-export function measureInkBox(
-  text: string,
-  fontFamily: string,
-  fontSize: number,
-  letterSpacingEm: number,
-): InkBox {
-  const metrics = measureSpacedText(text, fontFamily, fontSize, letterSpacingEm);
-  return {
-    left: metrics.actualBoundingBoxLeft,
-    right: metrics.actualBoundingBoxRight,
-    ascent: metrics.actualBoundingBoxAscent,
-    width: metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight,
   };
 }
 

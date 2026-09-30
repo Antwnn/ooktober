@@ -48,7 +48,7 @@ export const RemotionRoot = () => {
           fontSize: 200,
           isBlocked: false,
           noODetected: false,
-          outlineFontSize: 0,
+          outlinePath: "",
           wordMargin: 40,
         }}
         fps={FPS}

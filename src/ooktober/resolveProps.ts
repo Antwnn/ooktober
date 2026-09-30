@@ -1,5 +1,4 @@
 import {
-  CANVAS_HEIGHT,
   CANVAS_WIDTH,
   DYNAMIC_FONT_FAMILY,
   FALLBACK_ANIM_MARGIN,
@@ -11,8 +10,9 @@ import {
 } from "./constants";
 import { fontsReady } from "./fonts";
 import { getAnimatedText } from "./getAnimatedText";
-import { measureInk, measureInkBox, measureSplitWordInk } from "./measureInk";
+import { measureInk, measureSplitWordInk } from "./measureInk";
 import { containsProfanity } from "./moderation";
+import { buildOutlinePath } from "./outlinePath";
 import { Language, OoktoberInputProps, OoktoberResolvedProps } from "./schema";
 
 // Arbitrary reference size to measure ink metrics at — font metrics scale
@@ -80,29 +80,10 @@ export async function resolveOoktoberProps(
   const fittedFontSize = (availableSpan / reference.inkWidth) * FIT_REFERENCE_SIZE;
   const fontSize = Math.min(fittedFontSize, wordMaxFontSize);
 
-  // Same margin-to-margin ink fitting as the main word above, but against
-  // the canvas's *vertical* span (top margin to bottom margin — matching
-  // the left margin, per the outline's own placement) since the outline is
-  // laid out horizontally in its own local space and rotated -90° into
-  // that vertical column (see OutlineWord.tsx). Unlike the main word, this
-  // has no max-size cap: it must constantly touch the top, bottom, and
-  // left margins regardless of the input's length, so its size is purely
-  // proportional to how much ink there is to fit into that fixed vertical
-  // span. Nothing to fit for an empty/whitespace-only input.
-  let outlineFontSize = 0;
-  if (noODetected && text.trim().length > 0) {
-    const verticalSpan = CANVAS_HEIGHT - margin * 2;
-    // Tight ink box (first glyph's ink to last glyph's ink), not the
-    // advance box — so the ink itself, not its side bearings, spans the
-    // span exactly.
-    const outlineReference = measureInkBox(
-      text.toLowerCase(),
-      DYNAMIC_FONT_FAMILY,
-      FIT_REFERENCE_SIZE,
-      WORD_LETTER_SPACING_EM,
-    );
-    outlineFontSize = (verticalSpan / outlineReference.width) * FIT_REFERENCE_SIZE;
-  }
+  // The raw input's own outline, drawn in the background of the no-"o"
+  // state. Unlike the main word it has no max-size cap: it always touches
+  // the top, bottom and left margins, whatever the input's length.
+  const outlinePath = noODetected ? await buildOutlinePath(text, margin) : "";
 
   // Check both the raw input and the actual displayed word — some words
   // (e.g. "bobs") are clean on their own but become offensive once the
@@ -118,7 +99,7 @@ export async function resolveOoktoberProps(
     fontSize,
     isBlocked,
     noODetected,
-    outlineFontSize,
+    outlinePath,
     wordMargin,
   };
 }

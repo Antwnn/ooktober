@@ -15,12 +15,10 @@ import { OoktoberResolvedProps } from "./schema";
 // playback concern, handled by the <Player loop autoPlay> in the web tool,
 // not baked into the exported video itself.
 export const OoktoberComposition: React.FC<OoktoberResolvedProps> = ({
-  text,
   displayText,
   insertIndex,
   hasAnimation,
   fontSize,
-  margin,
   wordMargin,
   stretchPeak,
   sequenceDurationSeconds,
@@ -28,7 +26,7 @@ export const OoktoberComposition: React.FC<OoktoberResolvedProps> = ({
   easingInPower,
   isBlocked,
   noODetected,
-  outlineFontSize,
+  outlinePath,
   language = "nl",
 }) => {
   // An insult/profane word in the input hides every text element — only
@@ -55,16 +53,7 @@ export const OoktoberComposition: React.FC<OoktoberResolvedProps> = ({
       <AbsoluteFill>
         <Img src={backgroundSrc} style={{ width: "100%", height: "100%" }} />
       </AbsoluteFill>
-      {noODetected && text.trim().length > 0 && (
-        // Keyed so a new text/size remounts the outline and gets a fresh,
-        // fully painted layer (see OutlineWord).
-        <OutlineWord
-          key={`${text}-${outlineFontSize}`}
-          text={text}
-          fontSize={outlineFontSize}
-          margin={margin}
-        />
-      )}
+      {noODetected && outlinePath && <OutlineWord path={outlinePath} />}
       <AnimatedWord
         displayText={displayText}
         insertIndex={insertIndex}
