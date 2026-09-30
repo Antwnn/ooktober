@@ -423,6 +423,12 @@ export const App: React.FC = () => {
               style={{ width: "100%", height: "100%" }}
               loop
               autoPlay
+              // The composition has no sound. Unmuted, the Player waits for
+              // its AudioContext to resume before advancing frames, which
+              // browsers only allow after a user gesture — so on a fresh
+              // page load the preview stayed frozen until the first tap or
+              // keystroke.
+              initiallyMuted
               clickToPlay={false}
             />
           )}
@@ -515,7 +521,7 @@ export const App: React.FC = () => {
 
           <a
             className="donate-button"
-            href="https://www.think-pink.be/en/donate/introduction"
+            href={t.donateUrl}
             target="_blank"
             rel="noopener noreferrer"
           >

@@ -47,7 +47,12 @@ export const OutlineWord: React.FC<Props> = ({ text, fontSize, margin = WORD_MAR
       viewBox={`0 0 ${CANVAS_WIDTH} ${CANVAS_HEIGHT}`}
       width="100%"
       height="100%"
-      style={{ position: "absolute", inset: 0 }}
+      // Own compositing layer: Safari invalidates SVG text by its font
+      // metric boxes, not its painted ink, and this font's ink reaches well
+      // outside them at these sizes — repaints of the shared layer (the
+      // animated word, a text change) left parts of the outline unpainted
+      // and stale pieces of the previous one behind in the Player preview.
+      style={{ position: "absolute", inset: 0, willChange: "transform" }}
     >
       <text
         transform={`translate(${margin} ${CANVAS_HEIGHT - margin}) rotate(-90)`}

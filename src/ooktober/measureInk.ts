@@ -13,6 +13,39 @@ export type InkMeasurement = {
   inkWidth: number;
 };
 
+// Canvas2D's `letterSpacing` isn't implemented in every browser (notably
+// older Safari/iOS), where setting it is silently ignored and the text
+// measures as if it had no spacing at all — making the fitted word too big
+// for its margins in the preview. When it's missing, the spacing is added
+// by hand: CSS letter-spacing adds one gap after every character, so the
+// advance grows by one gap per character and the ink's right edge by one
+// gap per character but the last.
+function measureSpacedText(
+  text: string,
+  fontFamily: string,
+  fontSize: number,
+  letterSpacingEm: number,
+) {
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
+  ctx.font = `${fontSize}px "${fontFamily}"`;
+  const spacing = fontSize * letterSpacingEm;
+  const supportsLetterSpacing = "letterSpacing" in ctx;
+  if (supportsLetterSpacing) {
+    ctx.letterSpacing = `${spacing}px`;
+  }
+  const metrics = ctx.measureText(text);
+  const charCount = Array.from(text).length;
+  const manualSpacing = supportsLetterSpacing ? 0 : spacing;
+  return {
+    width: metrics.width + manualSpacing * charCount,
+    actualBoundingBoxLeft: metrics.actualBoundingBoxLeft,
+    actualBoundingBoxRight:
+      metrics.actualBoundingBoxRight + manualSpacing * Math.max(0, charCount - 1),
+    actualBoundingBoxAscent: metrics.actualBoundingBoxAscent,
+  };
+}
+
 // Canvas2D's TextMetrics reports both the advance box (`width`) and the
 // actual painted ink extent (`actualBoundingBox*`), unlike
 // @remotion/layout-utils which only reports the advance box.
@@ -22,11 +55,7 @@ export function measureInk(
   fontSize: number,
   letterSpacingEm: number,
 ): InkMeasurement {
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
-  ctx.font = `${fontSize}px "${fontFamily}"`;
-  ctx.letterSpacing = `${fontSize * letterSpacingEm}px`;
-  const metrics = ctx.measureText(text);
+  const metrics = measureSpacedText(text, fontFamily, fontSize, letterSpacingEm);
   // Per the Canvas2D spec, actualBoundingBoxLeft is the distance *going
   // left* from the alignment point (the advance box's left edge, for
   // default left/start alignment) — positive means the ink starts to the
@@ -65,11 +94,7 @@ export function measureInkBox(
   fontSize: number,
   letterSpacingEm: number,
 ): InkBox {
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
-  ctx.font = `${fontSize}px "${fontFamily}"`;
-  ctx.letterSpacing = `${fontSize * letterSpacingEm}px`;
-  const metrics = ctx.measureText(text);
+  const metrics = measureSpacedText(text, fontFamily, fontSize, letterSpacingEm);
   return {
     left: metrics.actualBoundingBoxLeft,
     right: metrics.actualBoundingBoxRight,

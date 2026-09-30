@@ -56,7 +56,14 @@ export const OoktoberComposition: React.FC<OoktoberResolvedProps> = ({
         <Img src={backgroundSrc} style={{ width: "100%", height: "100%" }} />
       </AbsoluteFill>
       {noODetected && text.trim().length > 0 && (
-        <OutlineWord text={text} fontSize={outlineFontSize} margin={margin} />
+        // Keyed so a new text/size remounts the outline and gets a fresh,
+        // fully painted layer (see OutlineWord).
+        <OutlineWord
+          key={`${text}-${outlineFontSize}`}
+          text={text}
+          fontSize={outlineFontSize}
+          margin={margin}
+        />
       )}
       <AnimatedWord
         displayText={displayText}
