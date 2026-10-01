@@ -97,6 +97,23 @@ const useScaleX = ({
 // `top` is derived from the font's own ascent/descent ratio
 // (WORD_BASELINE_RATIO) so the baseline itself lands on WORD_BASELINE_Y
 // regardless of fontSize.
+// Safari only repaints a text box's own layout rectangle when it changes,
+// and this font paints well outside it (the "i" dot above the line box, the
+// trailing "e" past its advance) — so in the Player preview the moving word
+// left stale fragments behind and parts of it unpainted (iOS especially).
+// Padding every text box by INK_PAD, cancelled out by an equal negative
+// margin, grows the repainted area to cover the ink without moving
+// anything: layout, baseline and rendered pixels stay exactly the same.
+const INK_PAD = "0.5em";
+const inkPaddingStyle: React.CSSProperties = {
+  display: "inline-block",
+  padding: INK_PAD,
+  margin: `-${INK_PAD}`,
+};
+// The padding moves the border box's left edge, so scaleX's origin is
+// offset by the same amount to stay on the glyphs' own left edge.
+const SCALE_ORIGIN = `${INK_PAD} 50%`;
+
 const getWordContainerStyle = (
   rightOffset: number,
   fontSize: number,
@@ -138,6 +155,7 @@ export const AnimatedWord: React.FC<Props> = ({
     letterSpacing: WORD_LETTER_SPACING,
     lineHeight: 1,
     whiteSpace: "nowrap",
+    ...inkPaddingStyle,
   };
 
   // The full (settled, scaleX === 1) word's ink metrics — used only for the
@@ -223,8 +241,7 @@ export const AnimatedWord: React.FC<Props> = ({
             style={{
               ...textStyle,
               letterSpacing: WORD_LETTER_SPACING_AFTER_O,
-              display: "inline-block",
-              transformOrigin: "0% 50%",
+              transformOrigin: SCALE_ORIGIN,
               transform: `scaleX(${scaleX})`,
             }}
           >
@@ -234,8 +251,7 @@ export const AnimatedWord: React.FC<Props> = ({
         <span
           style={{
             ...textStyle,
-            display: "inline-block",
-            transformOrigin: "0% 50%",
+            transformOrigin: SCALE_ORIGIN,
             // scaleX only — a uniform scale() here would also stretch Y,
             // and since transformOrigin is vertically centered on the
             // glyph box (not on the baseline), that visibly shifts the
