@@ -187,25 +187,15 @@ export const App: React.FC = () => {
 
   // On phones a plain download lands in Files, not the photo library. A
   // website can only reach the library through the OS share sheet ("Save
-  // Video"), and only right after a tap — far shorter than a render. So on
-  // touch devices the video is rendered ahead of time, once the user stops
-  // typing, and the Download tap opens the share sheet immediately.
+  // Video"), and only right after a tap — far shorter than a render. The
+  // video is only rendered when Download/Share is tapped (never in the
+  // background while typing, which made the server render every draft of
+  // the name); if the render outlasts the tap, a second tap shares the
+  // cached file (see the "tapAgain" state).
   const isTouchDevice =
     typeof window !== "undefined" &&
     window.matchMedia("(pointer: coarse)").matches &&
     typeof navigator.share === "function";
-
-  useEffect(() => {
-    if (!isTouchDevice || view !== "video" || text.trim().length === 0) return;
-    const timer = setTimeout(() => {
-      prepareVideo().catch(() => {
-        // Surfaced if the user taps Download; nothing to show before that.
-      });
-    }, 1200);
-    return () => clearTimeout(timer);
-    // prepareVideo only depends on text/language, both covered by videoKey.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isTouchDevice, view, videoKey]);
 
   // No title/text: iOS drops "Save Video" when the share carries text.
   const saveToPhotos = async (file: File) => {
