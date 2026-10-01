@@ -566,14 +566,6 @@ export const App: React.FC = () => {
         {renderState.status === "tapAgain" && (
           <p className="success">{t.tapAgainToSave}</p>
         )}
-        {renderState.status === "done" && (
-          <p className="success">
-            {t.successDone}{" "}
-            <a href={renderState.downloadUrl} download={renderState.fileName}>
-              {t.successRetryLink}
-            </a>
-          </p>
-        )}
       </div>
     </div>
   );
