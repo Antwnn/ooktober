@@ -5,6 +5,10 @@ import naughtyWords from "naughty-words";
 // dataset covers, so "any language" detection is a reasonable claim.
 const ALL_WORDS: string[] = Object.values(naughtyWords).flat();
 
+// Dictionary entries that are ordinary first names here and must not be
+// blocked.
+const ALLOWED_WORDS = new Set(["lolita"]);
+
 const COMBINING_DIACRITICS = new RegExp("[\\u0300-\\u036f]", "g");
 const NON_ALPHANUMERIC = /[^\p{L}\p{N}]+/gu;
 
@@ -26,6 +30,7 @@ const COLLAPSED_PHRASES: string[] = [];
 
 for (const word of ALL_WORDS) {
   const normalized = normalize(word);
+  if (ALLOWED_WORDS.has(normalized)) continue;
   if (normalized.includes(" ")) {
     const collapsed = collapse(normalized);
     if (collapsed.length >= MIN_COLLAPSED_PHRASE_LENGTH) {
